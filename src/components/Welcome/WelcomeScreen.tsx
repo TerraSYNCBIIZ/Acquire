@@ -3,9 +3,9 @@
 // A dramatic, luxurious entrance to the world of hotel empires
 // ============================================================================
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Play, RotateCcw, HelpCircle } from '../Icons/ChainIcons';
-import { Globe, Wifi } from 'lucide-react';
+import { Globe, Wifi, X } from 'lucide-react';
 import { ChainName } from '../../game/types';
 import { CHAIN_DISPLAY_NAMES } from '../../game/constants';
 import './WelcomeScreen.css';
@@ -29,6 +29,16 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
   rejoinRoomCode,
   onHowToPlay 
 }) => {
+  const [expandedChain, setExpandedChain] = useState<ChainName | null>(null);
+
+  const handleChainClick = (chain: ChainName) => {
+    setExpandedChain(chain);
+  };
+
+  const handleCloseLightbox = () => {
+    setExpandedChain(null);
+  };
+
   return (
     <div className="welcome-screen">
       {/* Skyline Background */}
@@ -108,22 +118,51 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
         {/* Hotel Chains Preview with Images */}
         <div className="chains-showcase">
           <h3 className="showcase-title">Seven Hotel Chains to Control</h3>
+          <p className="showcase-hint">Click any hotel to explore</p>
           <div className="chain-images-row">
             {CHAINS.map((chain, i) => (
               <div 
                 key={chain} 
                 className="chain-image-card"
                 style={{ animationDelay: `${i * 0.1}s` }}
+                onClick={() => handleChainClick(chain)}
               >
                 <img 
                   src={`/images/chains/${chain}.png`}
                   alt={CHAIN_DISPLAY_NAMES[chain]}
                   className="chain-hotel-image"
                 />
+                <div className="chain-name-overlay">
+                  {CHAIN_DISPLAY_NAMES[chain]}
+                </div>
               </div>
             ))}
           </div>
         </div>
+
+        {/* Lightbox for expanded hotel image */}
+        {expandedChain && (
+          <div className="lightbox-overlay" onClick={handleCloseLightbox}>
+            <div className="lightbox-content" onClick={(e) => e.stopPropagation()}>
+              <button className="lightbox-close" onClick={handleCloseLightbox}>
+                <X size={24} />
+              </button>
+              <img 
+                src={`/images/chains/${expandedChain}.png`}
+                alt={CHAIN_DISPLAY_NAMES[expandedChain]}
+                className="lightbox-image"
+              />
+              <div className="lightbox-info">
+                <h2 className="lightbox-title">{CHAIN_DISPLAY_NAMES[expandedChain]}</h2>
+                <p className="lightbox-tier">
+                  {['tower', 'luxor'].includes(expandedChain) && 'Budget Tier - Low cost stocks'}
+                  {['american', 'worldwide', 'festival'].includes(expandedChain) && 'Mid Tier - Balanced value'}
+                  {['continental', 'imperial'].includes(expandedChain) && 'Premium Tier - High value stocks'}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
         
         {/* Footer */}
         <div className="welcome-footer">
