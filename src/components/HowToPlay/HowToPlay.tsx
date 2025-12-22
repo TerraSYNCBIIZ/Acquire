@@ -237,3 +237,4 @@ export const HowToPlay: React.FC<HowToPlayProps> = ({ onClose }) => {
   );
 };
 
+

@@ -414,3 +414,4 @@ A player may **declare the game over** on their turn if EITHER:
 | Standard | American, Worldwide, Festival | $300 |
 | Luxury | Continental, Imperial | $400 |
 
+
