@@ -1,0 +1,46 @@
+{
+  "name": "acquire-digital",
+  "version": "1.0.0",
+  "description": "A modern, multiplayer digital implementation of the classic Sid Sackson board game Acquire",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:server": "tsx watch server/index.ts",
+    "dev:party": "partykit dev",
+    "dev:all": "concurrently \"npm run dev\" \"npm run dev:party\"",
+    "build": "tsc && vite build",
+    "build:party": "partykit build",
+    "deploy:party": "partykit deploy",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "start": "node dist/server/index.js"
+  },
+  "keywords": [
+    "boardgame",
+    "acquire",
+    "multiplayer",
+    "react"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "boardgame.io": "^0.50.2",
+    "lucide-react": "^0.562.0",
+    "partykit": "^0.0.115",
+    "partysocket": "^1.1.10",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.2",
+    "@vitest/ui": "^4.0.16",
+    "concurrently": "^9.2.1",
+    "tsx": "^4.7.0",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.0",
+    "vitest": "^4.0.16"
+  }
+}

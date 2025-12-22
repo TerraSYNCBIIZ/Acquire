@@ -1,0 +1,2 @@
+export { HowToPlay } from './HowToPlay';
+

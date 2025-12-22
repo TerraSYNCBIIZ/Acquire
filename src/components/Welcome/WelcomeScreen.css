@@ -1,0 +1,344 @@
+/* ============================================================================
+   ACQUIRE DIGITAL - Welcome Screen Styles (With Custom Art)
+   Luxurious entrance with skyline background and hotel chain images
+   ============================================================================ */
+
+/* === BASE LAYOUT === */
+.welcome-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* === SKYLINE BACKGROUND === */
+.welcome-background {
+  position: absolute;
+  inset: 0;
+  background: #0a0a1a;
+}
+
+.skyline-bg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center bottom;
+  opacity: 0.85;
+}
+
+.skyline-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(10, 10, 26, 0.3) 0%,
+    rgba(10, 10, 26, 0.1) 30%,
+    rgba(10, 10, 26, 0.4) 70%,
+    rgba(10, 10, 26, 0.95) 100%
+  );
+}
+
+/* === MAIN CONTENT === */
+.welcome-content {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2rem;
+  max-width: 800px;
+  width: 100%;
+  height: 100vh;
+  justify-content: flex-start;
+  animation: fadeInUp 0.8s ease;
+}
+
+.hero-spacer {
+  height: 35vh; /* Pushes the menu down to clear the background logo */
+  flex-shrink: 0;
+}
+
+@keyframes fadeInUp {
+  from { 
+    opacity: 0; 
+    transform: translateY(30px); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateY(0); 
+  }
+}
+
+/* Main action card layout */
+.welcome-card {
+  background: linear-gradient(
+    145deg,
+    rgba(20, 20, 40, 0.9) 0%,
+    rgba(15, 15, 30, 0.95) 100%
+  );
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 215, 0, 0.2);
+  border-radius: 20px;
+  padding: 1.75rem;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: 
+    0 25px 80px -20px rgba(0, 0, 0, 0.9),
+    0 0 0 1px rgba(255, 255, 255, 0.05) inset,
+    0 1px 0 rgba(255, 255, 255, 0.1) inset;
+  margin-bottom: auto; /* Pushes the chain showcase to the bottom */
+}
+
+.welcome-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* === BUTTONS === */
+.welcome-btn {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.9rem 1.1rem;
+  font-family: inherit;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+  text-align: left;
+}
+
+.welcome-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  transform: translateX(-100%);
+  transition: transform 0.5s ease;
+}
+
+.welcome-btn:hover::before {
+  transform: translateX(100%);
+}
+
+.btn-icon-wrap {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+.btn-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.btn-title {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.btn-desc {
+  font-size: 0.75rem;
+  opacity: 0.7;
+}
+
+/* Rejoin Online Button - Highest priority */
+.welcome-btn.rejoin-online {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: white;
+  box-shadow: 0 4px 20px rgba(245, 158, 11, 0.4);
+  animation: rejoinGlow 1.5s ease-in-out infinite;
+}
+
+.welcome-btn.rejoin-online:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(245, 158, 11, 0.6);
+}
+
+@keyframes rejoinGlow {
+  0%, 100% { box-shadow: 0 4px 20px rgba(245, 158, 11, 0.4); }
+  50% { box-shadow: 0 4px 40px rgba(245, 158, 11, 0.7); }
+}
+
+/* Pulsing icon for rejoin */
+.btn-icon-wrap.pulse {
+  animation: iconPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes iconPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+}
+
+/* Resume Button */
+.welcome-btn.resume {
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  color: white;
+  box-shadow: 0 4px 20px rgba(34, 197, 94, 0.4);
+  animation: resumeGlow 2.5s ease-in-out infinite;
+}
+
+.welcome-btn.resume:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(34, 197, 94, 0.6);
+}
+
+@keyframes resumeGlow {
+  0%, 100% { box-shadow: 0 4px 20px rgba(34, 197, 94, 0.4); }
+  50% { box-shadow: 0 4px 35px rgba(34, 197, 94, 0.6); }
+}
+
+/* Primary Button */
+.welcome-btn.primary {
+  background: linear-gradient(135deg, #ffd700 0%, #ff8c00 100%);
+  color: #0a0a0f;
+  box-shadow: 0 4px 20px rgba(255, 215, 0, 0.35);
+}
+
+.welcome-btn.primary .btn-icon-wrap {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.welcome-btn.primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 35px rgba(255, 215, 0, 0.55);
+}
+
+/* Online Button */
+.welcome-btn.online {
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  color: white;
+  box-shadow: 0 4px 20px rgba(59, 130, 246, 0.35);
+}
+
+.welcome-btn.online .btn-icon-wrap {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.welcome-btn.online:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 35px rgba(59, 130, 246, 0.55);
+}
+
+/* Secondary Button */
+.welcome-btn.secondary {
+  background: rgba(255, 255, 255, 0.04);
+  color: #a0a0b0;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.welcome-btn.secondary:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: white;
+  border-color: rgba(255, 255, 255, 0.25);
+  transform: translateY(-2px);
+}
+
+/* === CHAINS SHOWCASE WITH IMAGES === */
+.chains-showcase {
+  margin-top: auto; /* Pushes to the bottom */
+  padding-bottom: 2rem;
+  text-align: center;
+  width: 100%;
+}
+
+.showcase-title {
+  font-size: 0.8rem;
+  color: #5a5a70;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  margin-bottom: 1rem;
+  font-weight: 600;
+}
+
+.chain-images-row {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.chain-image-card {
+  width: 90px;
+  height: 60px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: rgba(20, 20, 40, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  animation: cardFloat 4s ease-in-out infinite;
+  cursor: default;
+  transition: all 0.25s ease;
+}
+
+.chain-image-card:hover {
+  transform: scale(1.15) translateY(-5px);
+  border-color: rgba(255, 215, 0, 0.5);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  z-index: 10;
+}
+
+@keyframes cardFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
+.chain-hotel-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+/* === FOOTER === */
+.welcome-footer {
+  margin-top: 2rem;
+  text-align: center;
+}
+
+.welcome-footer p {
+  color: #4a4a5a;
+  font-size: 0.75rem;
+  font-style: italic;
+}
+
+/* === RESPONSIVE === */
+@media (max-width: 700px) {
+  .game-logo {
+    letter-spacing: 0.06em;
+  }
+  
+  .welcome-card {
+    padding: 1.25rem;
+    margin: 0 1rem;
+  }
+  
+  .chain-images-row {
+    gap: 0.4rem;
+  }
+  
+  .chain-image-card {
+    width: 70px;
+    height: 48px;
+  }
+  
+  .tagline-features {
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+  
+  .feature-divider {
+    display: none;
+  }
+}

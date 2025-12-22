@@ -1,0 +1,2 @@
+export { AcquireBoard } from './AcquireBoard';
+
