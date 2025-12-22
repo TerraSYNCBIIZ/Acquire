@@ -3,8 +3,8 @@
 ## Document Information
 - **Version:** 1.0
 - **Created:** December 21, 2025
-- **Estimated Duration:** 10-14 weeks
-- **Status:** Ready to Execute
+- **Status:** LAUNCHED (Version 1.0 Live)
+- **Current Focus:** Version 1.1 (Multiplayer Refinement)
 
 ---
 
@@ -16,14 +16,14 @@ This document outlines the complete implementation plan for building a digital m
 
 ## Phase Overview
 
-| Phase | Name | Duration | Key Deliverables |
-|-------|------|----------|------------------|
-| 1 | Foundation & Core Game Logic | 2 weeks | Game state, moves, pure logic |
-| 2 | Single-Player Prototype | 2 weeks | Playable local game |
-| 3 | UI/UX Development | 3 weeks | Complete visual interface |
-| 4 | Multiplayer Integration | 2 weeks | Online multiplayer support |
-| 5 | Polish & Testing | 2 weeks | Bug fixes, optimization |
-| 6 | Deployment & Launch | 1 week | Production deployment |
+| Phase | Name | Duration | Key Deliverables | Status |
+|-------|------|----------|------------------|--------|
+| 1 | Foundation & Core Game Logic | 2 weeks | Game state, moves, pure logic | **COMPLETED** |
+| 2 | Single-Player Prototype | 2 weeks | Playable local game | **COMPLETED** |
+| 3 | UI/UX Development | 3 weeks | Complete visual interface | **COMPLETED** |
+| 4 | Multiplayer Integration | 2 weeks | Online multiplayer support | **COMPLETED** |
+| 5 | Polish & Testing | 2 weeks | Bug fixes, optimization | **COMPLETED** |
+| 6 | Deployment & Launch | 1 week | Production deployment | **COMPLETED** |
 
 ---
 
@@ -520,11 +520,11 @@ This document outlines the complete implementation plan for building a digital m
 ## Post-Launch Roadmap
 
 ### Version 1.1 (Month 2) - Multiplayer Refinement & Bots
-- [ ] **AI Bot Optimization**: Remove turn timer restrictions for bots during multiplayer.
-- [ ] **Instant AI Conversion**: Fix bots to immediately take their turn when a player is converted to a bot.
-- [ ] **Challenging AI**: Enhance `strategicBot.ts` with more aggressive stock hoarding and merger-prevention logic.
-- [ ] **Scoring Clarity**: Add a detailed score breakdown (cash vs. stock value vs. bonuses) to the Game Over screen and side panel.
-- [ ] **Scoring Audit**: Conduct a final verification of all edge cases in `logic/merger.ts` (e.g., multi-way ties for minority shareholder).
+- [x] **AI Bot Optimization**: Remove turn timer restrictions for bots during multiplayer.
+- [x] **Instant AI Conversion**: Fix bots to immediately take their turn when a player is converted to a bot.
+- [x] **Challenging AI**: Enhance `strategicBot.ts` with more aggressive stock hoarding and merger-prevention logic.
+- [x] **Scoring Clarity**: Add a detailed score breakdown (cash vs. stock value vs. bonuses) to the Game Over screen and side panel.
+- [x] **Scoring Audit**: Conduct a final verification of all edge cases in `logic/merger.ts` (e.g., multi-way ties for minority shareholder).
 - [ ] AI opponents for single-player (dedicated mode)
 - [ ] Tournament mode
 - [ ] Leaderboards

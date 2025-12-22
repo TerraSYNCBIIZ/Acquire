@@ -110,6 +110,38 @@ export function getShareholderOrder(
 
 /**
  * Calculate shareholder bonuses for a defunct chain
+ * 
+ * EDGE CASES HANDLED (per official Acquire rules):
+ * 
+ * 1. SINGLE STOCKHOLDER
+ *    - Gets BOTH majority AND minority bonus (full payout)
+ *    - Example: Player A has 5 shares, no one else has any
+ *    - Result: Player A gets majorityBonus + minorityBonus
+ * 
+ * 2. TIE FOR MAJORITY (2+ players tied for highest)
+ *    - All tied players split (majorityBonus + minorityBonus)
+ *    - NO separate minority is paid
+ *    - Each player gets: roundUp((majority + minority) / numTied)
+ *    - Example: Players A, B, C each have 4 shares
+ *    - Result: Each gets ceil($9000 / 3) = $3000
+ * 
+ * 3. TIE FOR MINORITY (clear majority, 2+ tied for second)
+ *    - Majority holder gets full majorityBonus
+ *    - Tied minority holders split minorityBonus
+ *    - Each minority gets: roundUp(minorityBonus / numTied)
+ *    - Example: A has 5 shares, B and C each have 3 shares
+ *    - Result: A gets $6000 (majority), B and C each get $1500 (split $3000)
+ * 
+ * 4. PLAYERS WITH SHARES BUT NOT MAJORITY/MINORITY
+ *    - Get no bonus
+ *    - Only highest (majority) and second-highest (minority) counts receive bonuses
+ *    - Example: A has 5, B has 3, C has 1 share
+ *    - Result: A gets majority, B gets minority, C gets nothing
+ * 
+ * 5. ROUNDING
+ *    - All split bonuses are rounded UP to nearest $100
+ *    - This can result in total payouts slightly exceeding the base bonus
+ *    - This is per official rules
  */
 export function calculateBonuses(
   G: AcquireGameState,
@@ -128,6 +160,7 @@ export function calculateBonuses(
     }
   }
   
+  // EDGE CASE: No stockholders - no bonuses paid
   if (stockholders.length === 0) {
     return [];
   }
@@ -137,7 +170,7 @@ export function calculateBonuses(
   
   const bonuses: { playerId: string; bonus: number }[] = [];
   
-  // Only one stockholder - gets both bonuses
+  // EDGE CASE 1: Only one stockholder - gets both bonuses
   if (stockholders.length === 1) {
     bonuses.push({
       playerId: stockholders[0].playerId,
@@ -150,8 +183,8 @@ export function calculateBonuses(
   const maxCount = stockholders[0].count;
   const majorityHolders = stockholders.filter(s => s.count === maxCount);
   
+  // EDGE CASE 2: Tie for majority - split majority + minority, no separate minority paid
   if (majorityHolders.length > 1) {
-    // Tie for majority - split majority + minority
     const totalBonus = majorityBonus + minorityBonus;
     const splitBonus = roundUpToNearest100(totalBonus / majorityHolders.length);
     
@@ -161,26 +194,28 @@ export function calculateBonuses(
         bonus: splitBonus,
       });
     }
-    return bonuses;
+    return bonuses; // No minority bonus when there's a tie for majority
   }
   
-  // Single majority holder
+  // Single majority holder gets full majority bonus
   bonuses.push({
     playerId: majorityHolders[0].playerId,
     bonus: majorityBonus,
   });
   
-  // Find minority holders (excluding majority)
+  // Find minority holders (all remaining stockholders, find those with 2nd highest count)
   const remainingHolders = stockholders.slice(1);
   if (remainingHolders.length === 0) {
+    // Shouldn't happen since we checked stockholders.length > 1 above
     return bonuses;
   }
   
   const secondMaxCount = remainingHolders[0].count;
   const minorityHolders = remainingHolders.filter(s => s.count === secondMaxCount);
   
+  // EDGE CASE 3: Tie for minority - split minority bonus
+  // EDGE CASE 4: Players with lower counts than minority get nothing
   if (minorityHolders.length > 1) {
-    // Tie for minority - split minority bonus
     const splitBonus = roundUpToNearest100(minorityBonus / minorityHolders.length);
     for (const holder of minorityHolders) {
       bonuses.push({
@@ -189,6 +224,7 @@ export function calculateBonuses(
       });
     }
   } else {
+    // Single minority holder gets full minority bonus
     bonuses.push({
       playerId: minorityHolders[0].playerId,
       bonus: minorityBonus,

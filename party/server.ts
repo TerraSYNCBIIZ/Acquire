@@ -161,6 +161,9 @@ export default class AcquirePartyServer implements Party.Server {
     const player = this.state.players.find(p => p.id === playerId);
     if (!player) return;
     
+    const playerIndex = this.state.players.indexOf(player);
+    const gamePlayerId = String(playerIndex);
+    
     player.isAI = true;
     player.aiPersonality = 'balanced';
     player.name = `${player.name} (Bot)`;
@@ -189,6 +192,30 @@ export default class AcquirePartyServer implements Party.Server {
           gameState: this.state.gameState,
           turnTimeRemaining: null
         });
+      }
+    } else {
+      // Check if this newly converted bot needs to take their turn immediately
+      if (this.state.gameState && this.state.gameState.currentPlayer === gamePlayerId) {
+        console.log('[SERVER] Converting player who is current - bot will play immediately');
+        this.stopTurnTimer(); // Stop any running timer for the now-bot player
+        // Small delay to let the UI update, then play
+        setTimeout(() => {
+          this.checkAndPlayAITurn();
+        }, 500);
+      }
+      
+      // Also check if we're in merger resolution and this player needs to act
+      if (this.state.gameState?.mergerState?.survivorChain !== null) {
+        const expectedPlayer = this.state.gameState.mergerState.shareholderOrder[
+          this.state.gameState.mergerState.currentShareholderIndex
+        ];
+        if (expectedPlayer === gamePlayerId) {
+          console.log('[SERVER] Converting player who needs to handle merger stocks - bot will act immediately');
+          this.stopTurnTimer();
+          setTimeout(() => {
+            this.checkAndPlayAITurn();
+          }, 500);
+        }
       }
     }
     
@@ -519,6 +546,19 @@ export default class AcquirePartyServer implements Party.Server {
     this.stopTurnTimer();
     
     if (this.state.timerSeconds <= 0) return; // Unlimited time
+    
+    // Skip timer for AI players - they don't need time limits
+    if (this.state.gameState) {
+      const currentPlayerId = this.state.gameState.currentPlayer;
+      const currentPlayerIndex = this.state.players.findIndex((_, i) => String(i) === currentPlayerId);
+      const currentLobbyPlayer = this.state.players[currentPlayerIndex];
+      
+      if (currentLobbyPlayer?.isAI) {
+        console.log('[SERVER] Skipping timer for AI player:', currentLobbyPlayer.name);
+        this.state.turnTimeRemaining = null;
+        return;
+      }
+    }
     
     this.state.turnTimeRemaining = this.state.timerSeconds;
     console.log('[SERVER] Starting timer:', this.state.timerSeconds, 'seconds');

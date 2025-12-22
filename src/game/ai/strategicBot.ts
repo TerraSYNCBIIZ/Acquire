@@ -363,6 +363,42 @@ function chooseStrategicTile(
       }
     }
     
+    // MERGER PREVENTION: Check if this tile triggers a merger that benefits opponents
+    if (adjacentChains.size > 1) {
+      const chains = Array.from(adjacentChains);
+      let ourMergerValue = 0;
+      let opponentMergerValue = 0;
+      
+      for (const chain of chains) {
+        const size = analysis.chainSizes[chain];
+        const majorityBonus = getMajorityBonus(chain, size);
+        const minorityBonus = getMinorityBonus(chain, size);
+        
+        // Calculate who gets bonuses
+        const competition = analysis.stockCompetition[chain];
+        if (competition.leader === playerId && competition.ourShares > 0) {
+          ourMergerValue += majorityBonus;
+        } else if (competition.ourShares > 0) {
+          // We might get minority
+          ourMergerValue += minorityBonus * 0.5; // Discount for uncertainty
+        }
+        
+        // Estimate opponent gains
+        if (competition.leader !== playerId && competition.shares > 0) {
+          opponentMergerValue += majorityBonus;
+        }
+      }
+      
+      // Penalize mergers that benefit opponents significantly more than us
+      if (opponentMergerValue > ourMergerValue * 1.5) {
+        weight -= 20 * (1 - config.aggressiveness); // Less penalty for aggressive strategies
+        reason = `avoiding merger that benefits opponents ($${opponentMergerValue} vs our $${ourMergerValue})`;
+      } else if (ourMergerValue > opponentMergerValue) {
+        weight += 15; // Bonus for favorable merger
+        reason = `favorable merger ($${ourMergerValue} vs opponent $${opponentMergerValue})`;
+      }
+    }
+    
     // Strategy-specific evaluation
     switch (config.strategy) {
       case 'dominator': {
@@ -381,6 +417,14 @@ function chooseStrategicTile(
         if (adjacentTiles > 0 && adjacentChains.size === 0) {
           weight = 40 * config.aggressiveness;
           reason = 'founding new chain to dominate';
+        }
+        // STOCK HOARDING INCENTIVE: Expand chains we're buying into
+        if (adjacentChains.size === 1) {
+          const chain = Array.from(adjacentChains)[0];
+          if (analysis.ourMajorities.includes(chain) && analysis.chainSizes[chain] < 11) {
+            weight += 15; // Extra bonus for growing chain toward safety
+            reason += ' (growing toward safety)';
+          }
         }
         break;
       }
@@ -404,13 +448,16 @@ function chooseStrategicTile(
       }
       
       case 'opportunist': {
-        // Love mergers!
+        // Love mergers but be smart about them!
         if (adjacentChains.size > 1) {
           const chains = Array.from(adjacentChains);
           const merger = analysis.mergerOpportunities.find(m => m.tile === tile);
-          if (merger) {
+          if (merger && merger.profit > 0) {
             weight = 60 + merger.profit / 100;
             reason = `triggering merger ${chains.join(' + ')} for profit`;
+          } else if (merger) {
+            weight = 20; // Still consider it but lower priority
+            reason = 'merger with low profit';
           }
         }
         // Also like expansion
@@ -435,10 +482,10 @@ function chooseStrategicTile(
             reason = `expanding ${chain}`;
           }
         }
-        // Avoid risky mergers unless profitable
+        // Strongly avoid risky mergers
         if (adjacentChains.size > 1) {
           const merger = analysis.mergerOpportunities.find(m => m.tile === tile);
-          weight = merger && merger.profit > 1000 ? 30 : 5;
+          weight = merger && merger.profit > 2000 ? 25 : 3; // Even more conservative
           reason = 'cautious merger';
         }
         break;
@@ -462,12 +509,18 @@ function chooseStrategicTile(
     
     // Game phase adjustments
     if (analysis.gameProgress > 0.7) {
-      // Late game - prioritize cashing out
+      // Late game - prioritize cashing out mergers we win
       const merger = analysis.mergerOpportunities.find(m => m.tile === tile);
       if (merger && merger.profit > 0) {
         weight *= 1.5;
         reason += ' (late game cash-out)';
       }
+    }
+    
+    // Early game: prioritize chain founding and building positions
+    if (analysis.gameProgress < 0.3 && adjacentTiles > 0 && adjacentChains.size === 0) {
+      weight += 10;
+      reason += ' (early game founding bonus)';
     }
     
     options.push({ option: tile, weight: Math.max(1, weight), reason });
@@ -576,17 +629,23 @@ function chooseStrategicStocks(
   // Calculate how much to spend based on strategy
   let spendRatio: number;
   switch (config.strategy) {
-    case 'dominator': spendRatio = 0.7 * config.aggressiveness; break;
+    case 'dominator': spendRatio = 0.8 * config.aggressiveness; break; // More aggressive
     case 'diversifier': spendRatio = 0.5; break;
-    case 'opportunist': spendRatio = 0.6; break;
+    case 'opportunist': spendRatio = 0.7; break; // More aggressive
     case 'accumulator': spendRatio = 0.3 * (1 - config.patience) + 0.1; break;
     case 'chaotic': spendRatio = 0.2 + Math.random() * 0.5; break;
     default: spendRatio = 0.5;
   }
   
-  // Late game: spend more
+  // Late game: spend more aggressively
   if (gameProgress > 0.7) {
-    spendRatio = Math.min(0.9, spendRatio * 1.5);
+    spendRatio = Math.min(0.95, spendRatio * 1.5);
+  }
+  
+  // STOCK HOARDING: If we have majority in any chain, aggressively buy to cement position
+  const majorityChains = analysis.ourMajorities;
+  if (majorityChains.length > 0) {
+    spendRatio = Math.max(spendRatio, 0.7); // Always spend at least 70% when protecting lead
   }
   
   const budget = player.cash * spendRatio;
@@ -612,14 +671,24 @@ function chooseStrategicStocks(
       0 : competition.shares - competition.ourShares + 1;
     const canTakeMajority = maxBuy >= sharesNeededForMajority && sharesNeededForMajority > 0;
     
+    // STOCK HOARDING: Calculate how close opponent is to taking our majority
+    const opponentCloseToMajority = analysis.ourMajorities.includes(chain) && 
+      competition.shares >= competition.ourShares - 2;
+    
     switch (config.strategy) {
       case 'dominator': {
         // Focus on chains we can dominate
         if (analysis.ourMajorities.includes(chain)) {
           weight = 50 + player.stocks[chain] * 3; // Strengthen position
           reason = `strengthening majority in ${chain}`;
+          
+          // HOARDING: If opponent is close, buy aggressively to maintain lead
+          if (opponentCloseToMajority) {
+            weight += 30;
+            reason = `HOARDING to protect majority in ${chain}!`;
+          }
         } else if (canTakeMajority) {
-          weight = 60;
+          weight = 70; // Higher priority for taking majority
           reason = `taking majority in ${chain}!`;
         } else if (player.stocks[chain] > 0) {
           weight = 25;
@@ -650,8 +719,13 @@ function chooseStrategicStocks(
           weight = 40 + bonusValue / 100;
           reason = `merger target ${chain}`;
         } else if (canTakeMajority) {
-          weight = 50;
+          weight = 55;
           reason = `opportunistic majority in ${chain}`;
+        }
+        // HOARDING: Protect positions that will pay out
+        if (analysis.ourMajorities.includes(chain) && opponentCloseToMajority) {
+          weight += 25;
+          reason = `protecting bonus in ${chain}`;
         }
         break;
       }
@@ -667,6 +741,11 @@ function chooseStrategicStocks(
         } else if (price <= 300) {
           weight = 25;
           reason = `cheap ${chain}`;
+        }
+        // Even accumulators protect their positions
+        if (analysis.ourMajorities.includes(chain) && opponentCloseToMajority) {
+          weight += 15;
+          reason = `protecting value in ${chain}`;
         }
         break;
       }

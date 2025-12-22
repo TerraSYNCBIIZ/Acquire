@@ -133,11 +133,12 @@ The frontend is deployed on **Netlify**.
 
 ## Future Enhancements (Roadmap)
 
-### Version 1.1 - Multiplayer Refinement & Bots
-- [ ] **AI Bot Optimization**: Remove turn timer restrictions for bots during multiplayer.
-- [ ] **Instant AI Conversion**: Fix bots to immediately take their turn when a player is converted to a bot.
-- [ ] **Challenging AI**: Enhance strategic logic for expert AI.
-- [ ] **Scoring Clarity**: Detailed score breakdown in the UI.
+### Version 1.1 - Multiplayer Refinement & Bots ✅
+- [x] **AI Bot Optimization**: Bots no longer affected by turn timers in multiplayer.
+- [x] **Instant AI Conversion**: Bots immediately take their turn when a player disconnects.
+- [x] **Challenging AI**: Enhanced strategic logic with stock hoarding and merger prevention.
+- [x] **Scoring Clarity**: Expandable score breakdown for all players on Game Over screen.
+- [x] **Scoring Audit**: Edge cases for bonus calculations verified and documented.
 
 ### Version 1.2+
 - [ ] Sound effects and animations
@@ -145,6 +146,9 @@ The frontend is deployed on **Netlify**.
 - [ ] Persistent accounts and rankings
 - [ ] Mobile-responsive layout
 - [ ] Spectator mode
+- [ ] AI opponents for single-player (dedicated mode)
+- [ ] Tournament mode
+- [ ] Leaderboards
 
 ## Credits
 
