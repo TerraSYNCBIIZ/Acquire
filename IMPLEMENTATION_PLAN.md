@@ -519,10 +519,15 @@ This document outlines the complete implementation plan for building a digital m
 
 ## Post-Launch Roadmap
 
-### Version 1.1 (Month 2)
-- AI opponents for single-player
-- Tournament mode
-- Leaderboards
+### Version 1.1 (Month 2) - Multiplayer Refinement & Bots
+- [ ] **AI Bot Optimization**: Remove turn timer restrictions for bots during multiplayer.
+- [ ] **Instant AI Conversion**: Fix bots to immediately take their turn when a player is converted to a bot.
+- [ ] **Challenging AI**: Enhance `strategicBot.ts` with more aggressive stock hoarding and merger-prevention logic.
+- [ ] **Scoring Clarity**: Add a detailed score breakdown (cash vs. stock value vs. bonuses) to the Game Over screen and side panel.
+- [ ] **Scoring Audit**: Conduct a final verification of all edge cases in `logic/merger.ts` (e.g., multi-way ties for minority shareholder).
+- [ ] AI opponents for single-player (dedicated mode)
+- [ ] Tournament mode
+- [ ] Leaderboards
 
 ### Version 1.2 (Month 3)
 - Mobile app (React Native)

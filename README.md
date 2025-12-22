@@ -121,9 +121,25 @@ acquire-digital/
 └── package.json
 ```
 
-## Future Enhancements
+## Multiplayer & Deployment
 
-- [ ] AI opponents for solo play
+### Backend (PartyKit)
+The real-time multiplayer backend is powered by **PartyKit**.
+- **Deployed URL**: `https://acquire-digital.terrasyncbiiz.partykit.dev`
+
+### Frontend (Netlify)
+The frontend is deployed on **Netlify**.
+- Ensure the `VITE_PARTYKIT_HOST` environment variable is set to your PartyKit URL.
+
+## Future Enhancements (Roadmap)
+
+### Version 1.1 - Multiplayer Refinement & Bots
+- [ ] **AI Bot Optimization**: Remove turn timer restrictions for bots during multiplayer.
+- [ ] **Instant AI Conversion**: Fix bots to immediately take their turn when a player is converted to a bot.
+- [ ] **Challenging AI**: Enhance strategic logic for expert AI.
+- [ ] **Scoring Clarity**: Detailed score breakdown in the UI.
+
+### Version 1.2+
 - [ ] Sound effects and animations
 - [ ] Game history/replay
 - [ ] Persistent accounts and rankings
