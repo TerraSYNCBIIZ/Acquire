@@ -614,6 +614,15 @@ export default class AcquirePartyServer implements Party.Server {
       } else {
         console.error('[SERVER] AI action failed:', 'error' in result ? result.error : 'unknown');
       }
+    } else {
+      // AI couldn't determine a valid action - log for debugging
+      console.warn('[SERVER] AI returned no action for player:', aiActingPlayerId, 
+        'phase:', currentPhase, 
+        'mergerState:', mergerState ? { 
+          survivorChain: mergerState.survivorChain,
+          currentShareholderIndex: mergerState.currentShareholderIndex,
+          shareholderOrder: mergerState.shareholderOrder
+        } : null);
     }
   }
 
@@ -745,28 +754,35 @@ export default class AcquirePartyServer implements Party.Server {
         }
         break;
         
-      case 'chooseMergerSurvivor':
-        // Pick the largest chain as survivor
-        if (mergerState && mergerState.potentialSurvivors.length > 0) {
-          const survivor = mergerState.potentialSurvivors[0]; // First one is typically largest
-          console.log('[SERVER] Auto-choosing merger survivor:', survivor, 'for player:', actingPlayerId);
-          skipAction = {
-            type: 'CHOOSE_MERGER_SURVIVOR',
-            playerId: actingPlayerId,
-            survivorChain: survivor
+      case 'resolveMerger':
+        // resolveMerger phase has two sub-states:
+        // 1. survivorChain === null: Need to choose which chain survives (current turn player)
+        // 2. survivorChain !== null: Shareholders deciding on defunct stock
+        if (mergerState && mergerState.survivorChain === null) {
+          // Need to choose survivor - pick the first (largest) chain from defunctChains
+          const chains = mergerState.defunctChains;
+          if (chains.length > 0) {
+            console.log('[SERVER] Auto-choosing merger survivor:', chains[0], 'for player:', actingPlayerId);
+            skipAction = {
+              type: 'CHOOSE_MERGER_SURVIVOR',
+              playerId: actingPlayerId,
+              chain: chains[0]
+            };
+          }
+        } else {
+          // Hold all stock - use the ACTUAL acting shareholder
+          const defunctChain = mergerState?.defunctChains[mergerState.currentDefunctIndex];
+          const player = this.state.gameState.players[actingPlayerId];
+          const holdings = defunctChain ? (player?.stocks[defunctChain] || 0) : 0;
+          console.log('[SERVER] Auto-holding stock for shareholder:', actingPlayerId, 'holdings:', holdings);
+          skipAction = { 
+            type: 'HANDLE_DEFUNCT_STOCK', 
+            playerId: actingPlayerId, 
+            hold: holdings,
+            sell: 0, 
+            trade: 0 
           };
         }
-        break;
-        
-      case 'resolveMerger':
-        // Hold all stock - use the ACTUAL acting shareholder, not turn player
-        console.log('[SERVER] Auto-holding stock for shareholder:', actingPlayerId);
-        skipAction = { 
-          type: 'HANDLE_DEFUNCT_STOCK', 
-          playerId: actingPlayerId, 
-          sell: 0, 
-          trade: 0 
-        };
         break;
     }
     
