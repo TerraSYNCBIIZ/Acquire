@@ -491,38 +491,93 @@ export default class AcquirePartyServer implements Party.Server {
     }
   }
 
-  // Check if current player is AI and play for them
+  // Check if current player (or current merger shareholder) is AI and play for them
   async checkAndPlayAITurn() {
     if (!this.state.gameState || this.state.phase !== 'playing' || this.state.gameState.gameOver) return;
     
-    const currentPlayerId = this.state.gameState.currentPlayer;
-    const currentPlayerIndex = this.state.players.findIndex((_, i) => String(i) === currentPlayerId);
-    const lobbyPlayer = this.state.players[currentPlayerIndex];
+    // Determine who should be acting - mirrors local useAI logic exactly
+    let aiActingPlayerId: string | null = null;
     
-    if (!lobbyPlayer || !lobbyPlayer.isAI) return;
+    // During merger stock decisions, check the current shareholder (not turn player)
+    const { currentPhase, mergerState } = this.state.gameState;
+    if (currentPhase === 'resolveMerger' && mergerState && mergerState.survivorChain !== null) {
+      const currentShareholder = mergerState.shareholderOrder[mergerState.currentShareholderIndex];
+      if (currentShareholder) {
+        const shareholderIndex = this.state.players.findIndex((_, i) => String(i) === currentShareholder);
+        const shareholderLobbyPlayer = this.state.players[shareholderIndex];
+        if (shareholderLobbyPlayer?.isAI) {
+          aiActingPlayerId = currentShareholder;
+        }
+      }
+    } else {
+      // Normal phases - check current player
+      const currentPlayerId = this.state.gameState.currentPlayer;
+      const currentPlayerIndex = this.state.players.findIndex((_, i) => String(i) === currentPlayerId);
+      const lobbyPlayer = this.state.players[currentPlayerIndex];
+      if (lobbyPlayer?.isAI) {
+        aiActingPlayerId = currentPlayerId;
+      }
+    }
     
-    console.log('[SERVER] AI turn for:', lobbyPlayer.name, 'personality:', lobbyPlayer.aiPersonality);
+    if (!aiActingPlayerId) return;
+    
+    // Get the AI player's lobby info
+    const aiPlayerIndex = this.state.players.findIndex((_, i) => String(i) === aiActingPlayerId);
+    const aiLobbyPlayer = this.state.players[aiPlayerIndex];
+    
+    if (!aiLobbyPlayer) return;
+    
+    console.log('[SERVER] AI turn for:', aiLobbyPlayer.name, 'personality:', aiLobbyPlayer.aiPersonality, 'phase:', currentPhase);
     
     // Brief delay just to prevent visual jitter, but AI plays immediately
     await new Promise(resolve => setTimeout(resolve, 150));
     
-    // Get AI action
-    const personalityName = lobbyPlayer.aiPersonality || 'balanced';
-    const presetPersonality = AI_PERSONALITIES[personalityName];
+    // Get AI action - mirrors local useAI personality config exactly
+    const aiName = aiLobbyPlayer.name;
+    const presetConfig = AI_PERSONALITIES[aiName];
     
-    // Build personality config - either use preset or generate from personality name
-    const personality: StrategicAIConfig = presetPersonality || {
-      strategy: personalityName === 'aggressive' ? 'dominator' :
-                personalityName === 'conservative' ? 'accumulator' :
-                personalityName === 'chaotic' ? 'chaotic' : 'opportunist',
-      aggressiveness: personalityName === 'aggressive' ? 0.8 : 0.5,
-      patience: personalityName === 'conservative' ? 0.8 : 0.5,
-      adaptability: 0.7,
-      randomness: personalityName === 'chaotic' ? 0.7 : 0.25,
-      name: lobbyPlayer.name,
+    // Map personality to strategy (same as local)
+    const personalityToStrategy = (personality: string | undefined): StrategicAIConfig['strategy'] => {
+      switch (personality) {
+        case 'aggressive': return 'dominator';
+        case 'conservative': return 'accumulator';
+        case 'balanced': return 'opportunist';
+        case 'dominator': return 'dominator';
+        case 'diversifier': return 'diversifier';
+        case 'opportunist': return 'opportunist';
+        case 'accumulator': return 'accumulator';
+        case 'chaotic': return 'chaotic';
+        default: return 'opportunist';
+      }
     };
     
-    const aiAction = getStrategicAIAction(this.state.gameState, currentPlayerId, personality);
+    // Personality-specific config values (same as local)
+    const personalityConfigs: Record<string, Partial<StrategicAIConfig>> = {
+      aggressive: { aggressiveness: 0.85, patience: 0.25, adaptability: 0.6, randomness: 0.2 },
+      conservative: { aggressiveness: 0.2, patience: 0.85, adaptability: 0.5, randomness: 0.15 },
+      balanced: { aggressiveness: 0.5, patience: 0.5, adaptability: 0.7, randomness: 0.25 },
+      dominator: { aggressiveness: 0.9, patience: 0.3, adaptability: 0.6, randomness: 0.2 },
+      diversifier: { aggressiveness: 0.5, patience: 0.7, adaptability: 0.8, randomness: 0.2 },
+      opportunist: { aggressiveness: 0.7, patience: 0.4, adaptability: 0.9, randomness: 0.3 },
+      accumulator: { aggressiveness: 0.3, patience: 0.9, adaptability: 0.7, randomness: 0.1 },
+      chaotic: { aggressiveness: 0.5, patience: 0.5, adaptability: 0.5, randomness: 0.7 },
+    };
+    
+    const selectedPersonality = aiLobbyPlayer.aiPersonality || 'balanced';
+    const personalityConfig = personalityConfigs[selectedPersonality] || personalityConfigs.balanced;
+    
+    const personality: StrategicAIConfig = presetConfig
+      ? { ...presetConfig, name: aiName }
+      : {
+          strategy: personalityToStrategy(selectedPersonality),
+          aggressiveness: personalityConfig.aggressiveness ?? 0.5,
+          patience: personalityConfig.patience ?? 0.5,
+          adaptability: personalityConfig.adaptability ?? 0.6,
+          randomness: personalityConfig.randomness ?? 0.25,
+          name: aiName,
+        };
+    
+    const aiAction = getStrategicAIAction(this.state.gameState, aiActingPlayerId, personality);
     
     if (aiAction) {
       console.log('[SERVER] AI action:', aiAction.type);
@@ -572,15 +627,28 @@ export default class AcquirePartyServer implements Party.Server {
     if (this.state.timerSeconds <= 0) return; // Unlimited time
     
     // Skip timer for AI players - they don't need time limits
+    // Check both current turn player AND merger shareholders (mirrors checkAndPlayAITurn logic)
     if (this.state.gameState) {
-      const currentPlayerId = this.state.gameState.currentPlayer;
-      const currentPlayerIndex = this.state.players.findIndex((_, i) => String(i) === currentPlayerId);
-      const currentLobbyPlayer = this.state.players[currentPlayerIndex];
+      let actingPlayerId: string | null = null;
       
-      if (currentLobbyPlayer?.isAI) {
-        console.log('[SERVER] Skipping timer for AI player:', currentLobbyPlayer.name);
-        this.state.turnTimeRemaining = null;
-        return;
+      const { currentPhase, mergerState } = this.state.gameState;
+      if (currentPhase === 'resolveMerger' && mergerState && mergerState.survivorChain !== null) {
+        // During merger, the current shareholder is acting
+        actingPlayerId = mergerState.shareholderOrder[mergerState.currentShareholderIndex];
+      } else {
+        // Normal phases - current turn player is acting
+        actingPlayerId = this.state.gameState.currentPlayer;
+      }
+      
+      if (actingPlayerId) {
+        const actingPlayerIndex = this.state.players.findIndex((_, i) => String(i) === actingPlayerId);
+        const actingLobbyPlayer = this.state.players[actingPlayerIndex];
+        
+        if (actingLobbyPlayer?.isAI) {
+          console.log('[SERVER] Skipping timer for AI:', actingLobbyPlayer.name, 'phase:', currentPhase);
+          this.state.turnTimeRemaining = null;
+          return;
+        }
       }
     }
     
@@ -629,28 +697,37 @@ export default class AcquirePartyServer implements Party.Server {
       return;
     }
     
-    const currentPlayerId = this.state.gameState.currentPlayer;
-    console.log('[SERVER] Turn timeout for player:', currentPlayerId, 'phase:', this.state.gameState.currentPhase);
+    const { currentPhase, mergerState, currentPlayer } = this.state.gameState;
+    
+    // Determine who is actually acting (turn player or merger shareholder)
+    let actingPlayerId: string;
+    if (currentPhase === 'resolveMerger' && mergerState && mergerState.survivorChain !== null) {
+      actingPlayerId = mergerState.shareholderOrder[mergerState.currentShareholderIndex];
+    } else {
+      actingPlayerId = currentPlayer;
+    }
+    
+    console.log('[SERVER] Turn timeout for player:', actingPlayerId, 'phase:', currentPhase);
     
     // Auto-skip based on current phase
     let skipAction: GameAction | null = null;
     
-    switch (this.state.gameState.currentPhase) {
+    switch (currentPhase) {
       case 'playTile':
         // Find a valid tile to play - players is a Record, not an array!
-        const player = this.state.gameState.players[currentPlayerId];
+        const player = this.state.gameState.players[actingPlayerId];
         if (player && player.tiles.length > 0) {
           // Pick a random tile from their hand
           const randomIndex = Math.floor(Math.random() * player.tiles.length);
           const randomTile = player.tiles[randomIndex];
-          console.log('[SERVER] Auto-playing tile:', randomTile, 'for player:', currentPlayerId);
-          skipAction = { type: 'PLACE_TILE', playerId: currentPlayerId, tileId: randomTile };
+          console.log('[SERVER] Auto-playing tile:', randomTile, 'for player:', actingPlayerId);
+          skipAction = { type: 'PLACE_TILE', playerId: actingPlayerId, tileId: randomTile };
         }
         break;
         
       case 'buyStocks':
-        console.log('[SERVER] Auto-skipping buy stocks for player:', currentPlayerId);
-        skipAction = { type: 'SKIP_BUY_STOCKS', playerId: currentPlayerId };
+        console.log('[SERVER] Auto-skipping buy stocks for player:', actingPlayerId);
+        skipAction = { type: 'SKIP_BUY_STOCKS', playerId: actingPlayerId };
         break;
         
       case 'foundChain':
@@ -659,21 +736,34 @@ export default class AcquirePartyServer implements Party.Server {
           .filter(([_, chain]) => !chain.isActive)
           .map(([name]) => name);
         if (availableChains.length > 0) {
-          console.log('[SERVER] Auto-founding chain:', availableChains[0], 'for player:', currentPlayerId);
+          console.log('[SERVER] Auto-founding chain:', availableChains[0], 'for player:', actingPlayerId);
           skipAction = { 
             type: 'SELECT_CHAIN_TO_FOUND', 
-            playerId: currentPlayerId, 
+            playerId: actingPlayerId, 
             chainName: availableChains[0] as any 
           };
         }
         break;
         
+      case 'chooseMergerSurvivor':
+        // Pick the largest chain as survivor
+        if (mergerState && mergerState.potentialSurvivors.length > 0) {
+          const survivor = mergerState.potentialSurvivors[0]; // First one is typically largest
+          console.log('[SERVER] Auto-choosing merger survivor:', survivor, 'for player:', actingPlayerId);
+          skipAction = {
+            type: 'CHOOSE_MERGER_SURVIVOR',
+            playerId: actingPlayerId,
+            survivorChain: survivor
+          };
+        }
+        break;
+        
       case 'resolveMerger':
-        // Hold all stock
-        console.log('[SERVER] Auto-holding stock for player:', currentPlayerId);
+        // Hold all stock - use the ACTUAL acting shareholder, not turn player
+        console.log('[SERVER] Auto-holding stock for shareholder:', actingPlayerId);
         skipAction = { 
           type: 'HANDLE_DEFUNCT_STOCK', 
-          playerId: currentPlayerId, 
+          playerId: actingPlayerId, 
           sell: 0, 
           trade: 0 
         };
@@ -693,7 +783,7 @@ export default class AcquirePartyServer implements Party.Server {
         // Start timer for next turn FIRST so turnTimeRemaining is set correctly
         this.startTurnTimer();
         
-        this.broadcast({ type: 'TURN_SKIPPED', playerId: currentPlayerId });
+        this.broadcast({ type: 'TURN_SKIPPED', playerId: actingPlayerId });
         this.broadcast({ 
           type: 'GAME_STATE', 
           gameState: this.state.gameState,
