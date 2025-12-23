@@ -427,18 +427,18 @@ export default class AcquirePartyServer implements Party.Server {
     this.broadcast({ type: 'GAME_STARTED' });
     this.broadcast({ type: 'LOBBY_STATE', state: this.state });
     
+    // Start turn timer FIRST so turnTimeRemaining is set correctly (null for AI, timerSeconds for human)
+    this.startTurnTimer();
+    
     if (this.state.gameState) {
       this.broadcast({ 
         type: 'GAME_STATE', 
         gameState: this.state.gameState,
-        turnTimeRemaining: this.state.timerSeconds > 0 ? this.state.timerSeconds : null
+        turnTimeRemaining: this.state.turnTimeRemaining
       });
     }
     
-    // Start turn timer if configured
-    this.startTurnTimer();
-    
-    // Check if first player is AI
+    // Check if first player is AI - they play immediately without timer
     this.checkAndPlayAITurn();
   }
 
@@ -472,17 +472,21 @@ export default class AcquirePartyServer implements Party.Server {
     }
     
     await this.saveState();
+    
+    // Start turn timer FIRST so turnTimeRemaining is set correctly (null for AI, timerSeconds for human)
+    if (this.state.phase === 'playing') {
+      this.startTurnTimer();
+    }
+    
     this.broadcast({ 
       type: 'GAME_STATE', 
       gameState: this.state.gameState,
-      turnTimeRemaining: this.state.timerSeconds > 0 ? this.state.timerSeconds : null
+      turnTimeRemaining: this.state.turnTimeRemaining
     });
     this.broadcast({ type: 'LOBBY_STATE', state: this.state });
     
-    // Restart turn timer for next player
+    // Check if next player is an AI and play for them immediately
     if (this.state.phase === 'playing') {
-      this.startTurnTimer();
-      // Check if next player is an AI and play for them
       this.checkAndPlayAITurn();
     }
   }
@@ -499,8 +503,8 @@ export default class AcquirePartyServer implements Party.Server {
     
     console.log('[SERVER] AI turn for:', lobbyPlayer.name, 'personality:', lobbyPlayer.aiPersonality);
     
-    // Add delay to feel natural
-    await new Promise(resolve => setTimeout(resolve, 800 + Math.random() * 400));
+    // Brief delay just to prevent visual jitter, but AI plays immediately
+    await new Promise(resolve => setTimeout(resolve, 150));
     
     // Get AI action
     const personalityName = lobbyPlayer.aiPersonality || 'balanced';
@@ -535,16 +539,21 @@ export default class AcquirePartyServer implements Party.Server {
         }
         
         await this.saveState();
+        
+        // Start turn timer FIRST so turnTimeRemaining is set correctly (null for AI, timerSeconds for human)
+        if (this.state.phase === 'playing') {
+          this.startTurnTimer();
+        }
+        
         this.broadcast({ 
           type: 'GAME_STATE', 
           gameState: this.state.gameState,
-          turnTimeRemaining: this.state.timerSeconds > 0 ? this.state.timerSeconds : null
+          turnTimeRemaining: this.state.turnTimeRemaining
         });
         this.broadcast({ type: 'LOBBY_STATE', state: this.state });
         
-        // Continue checking for more AI turns
+        // Continue checking for more AI turns - they play immediately
         if (this.state.phase === 'playing') {
-          this.startTurnTimer();
           this.checkAndPlayAITurn();
         }
       } else {
@@ -677,21 +686,22 @@ export default class AcquirePartyServer implements Party.Server {
       if (result.success) {
         console.log('[SERVER] Timeout action succeeded, broadcasting update');
         this.state.gameState = result.state;
-        this.broadcast({ type: 'TURN_SKIPPED', playerId: currentPlayerId });
-        this.broadcast({ 
-          type: 'GAME_STATE', 
-          gameState: this.state.gameState,
-          turnTimeRemaining: this.state.timerSeconds
-        });
-        await this.saveState();
         
         // Reset flag before starting new timer
         this.isProcessingTimeout = false;
         
-        // Start timer for next turn
+        // Start timer for next turn FIRST so turnTimeRemaining is set correctly
         this.startTurnTimer();
         
-        // Check if next player is AI
+        this.broadcast({ type: 'TURN_SKIPPED', playerId: currentPlayerId });
+        this.broadcast({ 
+          type: 'GAME_STATE', 
+          gameState: this.state.gameState,
+          turnTimeRemaining: this.state.turnTimeRemaining
+        });
+        await this.saveState();
+        
+        // Check if next player is AI - they play immediately
         this.checkAndPlayAITurn();
       } else {
         console.log('[SERVER] Timeout action FAILED:', 'error' in result ? result.error : 'unknown');
