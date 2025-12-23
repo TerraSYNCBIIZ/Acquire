@@ -5,8 +5,9 @@
 
 import type * as Party from "partykit/server";
 import { createInitialState, gameReducer } from "../src/game/reducer";
-import type { AcquireGameState, GameAction } from "../src/game/types";
-import { getStrategicAIAction, AI_PERSONALITIES } from "../src/game/ai/strategicBot";
+import type { AcquireGameState } from "../src/game/types";
+import type { GameAction } from "../src/game/reducer";
+import { getStrategicAIAction, AI_PERSONALITIES, StrategicAIConfig } from "../src/game/ai/strategicBot";
 
 // ============================================================================
 // Types
@@ -502,7 +503,21 @@ export default class AcquirePartyServer implements Party.Server {
     await new Promise(resolve => setTimeout(resolve, 800 + Math.random() * 400));
     
     // Get AI action
-    const personality = AI_PERSONALITIES[lobbyPlayer.aiPersonality || 'balanced'] || AI_PERSONALITIES.balanced;
+    const personalityName = lobbyPlayer.aiPersonality || 'balanced';
+    const presetPersonality = AI_PERSONALITIES[personalityName];
+    
+    // Build personality config - either use preset or generate from personality name
+    const personality: StrategicAIConfig = presetPersonality || {
+      strategy: personalityName === 'aggressive' ? 'dominator' :
+                personalityName === 'conservative' ? 'accumulator' :
+                personalityName === 'chaotic' ? 'chaotic' : 'opportunist',
+      aggressiveness: personalityName === 'aggressive' ? 0.8 : 0.5,
+      patience: personalityName === 'conservative' ? 0.8 : 0.5,
+      adaptability: 0.7,
+      randomness: personalityName === 'chaotic' ? 0.7 : 0.25,
+      name: lobbyPlayer.name,
+    };
+    
     const aiAction = getStrategicAIAction(this.state.gameState, currentPlayerId, personality);
     
     if (aiAction) {

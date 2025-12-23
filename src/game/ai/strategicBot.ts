@@ -822,27 +822,76 @@ function handleStrategicMerger(
   
   const player = state.players[playerId];
   
-  // Choose survivor
+  // Choose survivor (handles 2+ chains of equal size)
   if (state.mergerState.survivorChain === null) {
     const chains = state.mergerState.defunctChains;
     
-    const options: WeightedOption<ChainName>[] = chains.map(chain => {
+    // Find the largest size among all chains
+    const maxSize = Math.max(...chains.map(c => analysis.chainSizes[c]));
+    
+    // Filter to only chains of the largest size (all candidates for survivor)
+    const equalSizedChains = chains.filter(c => analysis.chainSizes[c] === maxSize);
+    
+    console.log(`[AI] Merger survivor choice: ${chains.length} chains, ${equalSizedChains.length} at max size ${maxSize}`);
+    
+    const options: WeightedOption<ChainName>[] = equalSizedChains.map(chain => {
       const ourShares = player.stocks[chain];
       const size = analysis.chainSizes[chain];
       const isMajority = analysis.ourMajorities.includes(chain);
+      const isMinority = analysis.ourMinorities.includes(chain);
+      const tier = CHAIN_TIERS[chain];
       
-      let weight = ourShares * 10;
+      let weight = 10; // Base weight
       let reason = `${chain}: ${ourShares} shares`;
       
+      // HUGE bonus for chains we have majority in - we'll keep getting value from it
       if (isMajority) {
-        weight += 30;
+        weight += 50;
         reason += ' (we have majority!)';
+      } else if (isMinority) {
+        weight += 20;
+        reason += ' (we have minority)';
       }
       
-      // Prefer larger chains
-      weight += size * 2;
+      // Weight by our shareholding
+      weight += ourShares * 5;
       
-      return { option: chain, weight, reason };
+      // Strategy-specific preferences
+      switch (config.strategy) {
+        case 'dominator':
+          // Prefer chains we control
+          if (isMajority) weight += 30;
+          break;
+          
+        case 'opportunist':
+          // Prefer higher-tier chains (bigger bonuses later)
+          weight += tier * 10;
+          break;
+          
+        case 'accumulator':
+          // Prefer lower-tier chains (cheaper to buy more)
+          weight += (4 - tier) * 10;
+          break;
+          
+        case 'diversifier':
+          // Slight preference for chains we don't dominate (more variety)
+          if (!isMajority) weight += 5;
+          break;
+          
+        case 'chaotic':
+          // Add randomness
+          weight += Math.random() * 20;
+          break;
+      }
+      
+      // Consider opponent positions - avoid chains where opponents have strong majority
+      const competition = analysis.stockCompetition[chain];
+      if (competition.leader !== playerId && competition.shares > ourShares * 2) {
+        weight -= 15; // Opponent has strong control
+        reason += ' (opponent controls)';
+      }
+      
+      return { option: chain, weight: Math.max(1, weight), reason };
     });
     
     const selectedChain = weightedRandomSelect(options, config.randomness);
@@ -926,6 +975,141 @@ function handleStrategicMerger(
 }
 
 // ============================================================================
+// GAME END DECISION
+// ============================================================================
+
+function shouldDeclareGameEnd(
+  state: AcquireGameState,
+  playerId: string,
+  config: StrategicAIConfig,
+  analysis: GameAnalysis
+): boolean {
+  // Check if game end conditions are met
+  const activeChains = CHAIN_NAMES.filter(c => state.chains[c].isActive);
+  
+  const hasLargeChain = activeChains.some(c => state.chains[c].tiles.length >= 41);
+  const allSafe = activeChains.length > 0 && activeChains.every(c => state.chains[c].isSafe);
+  
+  if (!hasLargeChain && !allSafe) {
+    return false; // Cannot declare game end
+  }
+  
+  // Calculate our net worth vs opponents
+  const player = state.players[playerId];
+  let ourNetWorth = player.cash;
+  let bestOpponentNetWorth = 0;
+  
+  for (const chain of activeChains) {
+    const size = state.chains[chain].tiles.length;
+    const price = getStockPrice(chain, size);
+    ourNetWorth += player.stocks[chain] * price;
+    
+    // Add expected bonuses if we have majority/minority
+    if (analysis.ourMajorities.includes(chain)) {
+      ourNetWorth += getMajorityBonus(chain, size);
+    } else if (analysis.ourMinorities.includes(chain)) {
+      ourNetWorth += getMinorityBonus(chain, size);
+    }
+  }
+  
+  // Calculate opponent net worths
+  for (const [oppId, opponent] of Object.entries(state.players)) {
+    if (oppId === playerId) continue;
+    
+    let oppNetWorth = opponent.cash;
+    for (const chain of activeChains) {
+      const size = state.chains[chain].tiles.length;
+      const price = getStockPrice(chain, size);
+      oppNetWorth += opponent.stocks[chain] * price;
+      
+      // Check if opponent has majority/minority
+      const competition = analysis.stockCompetition[chain];
+      if (competition.leader === oppId) {
+        oppNetWorth += getMajorityBonus(chain, size);
+      }
+    }
+    bestOpponentNetWorth = Math.max(bestOpponentNetWorth, oppNetWorth);
+  }
+  
+  // Decision based on strategy
+  const leadMargin = ourNetWorth - bestOpponentNetWorth;
+  const leadPercent = ourNetWorth / Math.max(1, bestOpponentNetWorth);
+  
+  switch (config.strategy) {
+    case 'dominator':
+      // Dominators end game when they have ANY lead
+      return leadMargin > 0;
+      
+    case 'accumulator':
+      // Accumulators are conservative - want a solid 10% lead
+      return leadPercent >= 1.1;
+      
+    case 'opportunist':
+      // Opportunists end when they're ahead
+      return leadMargin > 500;
+      
+    case 'diversifier':
+      // Diversifiers want a comfortable margin
+      return leadPercent >= 1.05;
+      
+    case 'chaotic':
+      // Chaotic randomly decides when winning
+      return leadMargin > 0 && Math.random() > 0.5;
+      
+    default:
+      return leadMargin > 1000;
+  }
+}
+
+// ============================================================================
+// DEAD TILE EXCHANGE
+// ============================================================================
+
+function chooseDeadTileToExchange(
+  state: AcquireGameState,
+  playerId: string
+): GameAction | null {
+  const player = state.players[playerId];
+  
+  // Check if we've already exchanged a dead tile this turn
+  if (state.turnState.hasExchangedDeadTile) {
+    return null;
+  }
+  
+  // Check if there are tiles in the pool
+  if (state.tilePool.length === 0) {
+    return null;
+  }
+  
+  // Find dead tiles in hand (tiles that would merge two safe chains)
+  for (const tile of player.tiles) {
+    if (!isTilePlayable(state, tile)) {
+      const { row, col } = tileIdToCoord(tile);
+      const adjacentChains = new Set<ChainName>();
+      
+      const directions = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+      for (const [dr, dc] of directions) {
+        const nr = row + dr;
+        const nc = col + dc;
+        if (nr >= 0 && nr < BOARD_ROWS && nc >= 0 && nc < BOARD_COLS) {
+          const cell = state.board[nr][nc];
+          if (cell.chain) adjacentChains.add(cell.chain);
+        }
+      }
+      
+      // Check if this connects two safe chains (dead tile)
+      const safeAdjacent = Array.from(adjacentChains).filter(c => state.chains[c].isSafe);
+      if (safeAdjacent.length >= 2) {
+        console.log(`[AI] Exchanging dead tile ${tile} (connects ${safeAdjacent.join(' and ')})`);
+        return { type: 'EXCHANGE_DEAD_TILE', playerId, tileId: tile };
+      }
+    }
+  }
+  
+  return null;
+}
+
+// ============================================================================
 // MAIN ENTRY POINT
 // ============================================================================
 
@@ -940,14 +1124,42 @@ export function getStrategicAIAction(
   console.log(`[AI:${config.name || playerId}] Strategy: ${config.strategy}, Progress: ${(analysis.gameProgress * 100).toFixed(0)}%`);
   
   switch (state.currentPhase) {
-    case 'playTile':
-      return chooseStrategicTile(state, playerId, config, analysis);
+    case 'playTile': {
+      // First, try to exchange any dead tiles
+      const exchangeAction = chooseDeadTileToExchange(state, playerId);
+      if (exchangeAction) {
+        return exchangeAction;
+      }
+      
+      // Then try to play a tile
+      const tileAction = chooseStrategicTile(state, playerId, config, analysis);
+      if (tileAction) {
+        return tileAction;
+      }
+      
+      // If no playable tiles, pass the turn
+      const player = state.players[playerId];
+      const hasPlayableTile = player.tiles.some(t => isTilePlayable(state, t));
+      if (!hasPlayableTile) {
+        console.log(`[AI] No playable tiles - passing turn`);
+        return { type: 'PASS_TURN', playerId };
+      }
+      
+      return null;
+    }
       
     case 'foundChain':
       return chooseStrategicChain(state, playerId, config, analysis);
       
-    case 'buyStocks':
+    case 'buyStocks': {
+      // Check if we should declare game end BEFORE buying stocks
+      if (shouldDeclareGameEnd(state, playerId, config, analysis)) {
+        console.log(`[AI] Declaring game end - we are winning!`);
+        return { type: 'DECLARE_GAME_END', playerId };
+      }
+      
       return chooseStrategicStocks(state, playerId, config, analysis);
+    }
       
     case 'resolveMerger':
       return handleStrategicMerger(state, playerId, config, analysis);

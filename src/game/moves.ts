@@ -371,3 +371,86 @@ export function declareGameEnd({ G, ctx }: MoveContext) {
   G.currentPhase = 'gameEnd';
   G.log.push(`Player ${ctx.currentPlayer} declared game end!`);
 }
+
+// ============================================================================
+// DEAD TILE EXCHANGE
+// ============================================================================
+
+export function exchangeDeadTile({ G, ctx }: MoveContext, tileId: TileId) {
+  console.log(`[MOVE] exchangeDeadTile(${tileId}) by player ${ctx.currentPlayer}`);
+  
+  if (G.currentPhase !== 'playTile') {
+    console.error(`[MOVE] INVALID: Can only exchange dead tiles during tile placement phase`);
+    return INVALID_MOVE;
+  }
+  
+  const player = G.players[ctx.currentPlayer];
+  const tileIndex = player.tiles.indexOf(tileId);
+  
+  if (tileIndex === -1) {
+    console.error(`[MOVE] INVALID: Tile ${tileId} not in hand`);
+    return INVALID_MOVE;
+  }
+  
+  // Check if tile is actually dead (would merge two safe chains)
+  const outcome = getTilePlacementOutcome(G, tileId);
+  if (outcome.type !== 'unplayable' || outcome.reason !== 'dead') {
+    console.error(`[MOVE] INVALID: Tile ${tileId} is not a dead tile`);
+    return INVALID_MOVE;
+  }
+  
+  // Check if there are tiles in the pool
+  if (G.tilePool.length === 0) {
+    console.error(`[MOVE] INVALID: No tiles left to exchange`);
+    return INVALID_MOVE;
+  }
+  
+  // Check if already exchanged this turn
+  if (G.turnState.hasExchangedDeadTile) {
+    console.error(`[MOVE] INVALID: Already exchanged a dead tile this turn`);
+    return INVALID_MOVE;
+  }
+  
+  // Remove dead tile from player's hand
+  player.tiles.splice(tileIndex, 1);
+  
+  // Draw new tile
+  const newTile = G.tilePool.pop()!;
+  player.tiles.push(newTile);
+  
+  // Put dead tile back in pool (at the beginning so it gets shuffled)
+  G.tilePool.unshift(tileId);
+  
+  G.turnState.hasExchangedDeadTile = true;
+  G.log.push(`Player ${ctx.currentPlayer} exchanged dead tile ${tileId} for ${newTile}`);
+  
+  console.log(`[MOVE] exchangeDeadTile completed.`);
+}
+
+// ============================================================================
+// PASS TURN (when no playable tiles)
+// ============================================================================
+
+export function passTurn({ G, ctx }: MoveContext) {
+  console.log(`[MOVE] passTurn by player ${ctx.currentPlayer}`);
+  
+  if (G.currentPhase !== 'playTile') {
+    console.error(`[MOVE] INVALID: Can only pass during tile placement phase`);
+    return INVALID_MOVE;
+  }
+  
+  const player = G.players[ctx.currentPlayer];
+  
+  // Check if player truly has no playable tiles
+  const hasPlayableTile = player.tiles.some(t => isTilePlayable(G, t));
+  if (hasPlayableTile) {
+    console.error(`[MOVE] INVALID: Player has playable tiles - cannot pass`);
+    return INVALID_MOVE;
+  }
+  
+  G.log.push(`Player ${ctx.currentPlayer} has no playable tiles - skipping tile placement`);
+  G.turnState.hasPlayedTile = true; // Treat as having played
+  G.currentPhase = 'buyStocks';
+  
+  console.log(`[MOVE] passTurn completed. Phase: ${G.currentPhase}`);
+}

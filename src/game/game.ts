@@ -14,6 +14,8 @@ import {
   chooseMergerSurvivor,
   handleDefunctStock,
   declareGameEnd,
+  exchangeDeadTile,
+  passTurn,
 } from './moves';
 import { calculateBonuses } from './logic/merger';
 import { CHAIN_NAMES, getStockPrice } from './constants';
@@ -77,6 +79,8 @@ export const AcquireGame: Game<AcquireGameState> = {
     chooseMergerSurvivor,
     handleDefunctStock,
     declareGameEnd,
+    exchangeDeadTile,
+    passTurn,
   },
   
   turn: {

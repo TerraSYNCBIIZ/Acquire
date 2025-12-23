@@ -140,7 +140,14 @@ The frontend is deployed on **Netlify**.
 - [x] **Scoring Clarity**: Expandable score breakdown for all players on Game Over screen.
 - [x] **Scoring Audit**: Edge cases for bonus calculations verified and documented.
 
-### Version 1.2+
+### Version 1.2 - Complete Rule Implementation & Smarter AI ✅
+- [x] **AI Game End Declaration**: Bots now declare game end when winning and conditions are met.
+- [x] **Dead Tile Exchange**: Players can discard tiles that connect two safe chains and draw new ones.
+- [x] **Unplayable Hand Handling**: Players with no playable tiles can now pass their tile placement phase.
+- [x] **Enhanced Merger AI**: Improved survivor selection logic for 3+ chain equal-size mergers.
+- [x] **Strategy-Aware End Game**: Each AI personality uses different criteria for when to end the game.
+
+### Version 1.3+
 - [ ] Sound effects and animations
 - [ ] Game history/replay
 - [ ] Persistent accounts and rankings
